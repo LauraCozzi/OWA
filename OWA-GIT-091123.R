@@ -654,6 +654,8 @@ server <- function(input, output, session) {
       figure
     })
     
+    data.cov <- data.cov + diag(nrow(data.cov)) * 1e-6
+    
     # Etapa 4
     # Finding distances
     distances <- mahalanobis(x = data , center = data.center , cov = data.cov)
