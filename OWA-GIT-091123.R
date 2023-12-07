@@ -22,6 +22,7 @@ ui <- fluidPage(
     tags$style(HTML(".info-icon { cursor: pointer; }")),
   ),
   
+  # Define the title that will appear in the application
   # Define o título que aparecerá na aplicação
   titlePanel(
     tags$h2(
@@ -33,6 +34,7 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("Data Input", 
              sidebarLayout(
+               # Components for choosing the Excel file
                # Componentes para a escolha do arquivo Excel
                sidebarPanel(
                  div(
@@ -45,6 +47,7 @@ ui <- fluidPage(
                    )
                  ),
                  fileInput(inputId = "file", label = NULL),
+                 # Components for choosing sub-indicators
                  # Componentes para a escolha dos subindicadores
                  div(
                    style = "display: flex; align-items: center;",
@@ -62,6 +65,7 @@ ui <- fluidPage(
                    choices = NULL,  
                    multiple = TRUE
                  ),
+                 # Components for choosing the control variable
                  # Componentes para a escolha da variável de controle
                  div(
                    style = "display: flex; align-items: center;",
@@ -79,6 +83,7 @@ ui <- fluidPage(
                    choices = NULL,  
                    selected = NULL
                  ),
+                 # Components for choosing emphasis (Positive or Negative)
                  # Componentes para a escolha da ênfase (Positiva ou Negativa)
                  div(
                    style = "display: flex; align-items: center;",
@@ -95,6 +100,7 @@ ui <- fluidPage(
                    choices = c("Positive", "Negative"),
                    selected = "Positive"
                  ),
+                 # Components for choosing the emphasis percentage
                  # Componentes para a escolha da porcentagem da ênfase
                  div(
                    style = "display: flex; align-items: center;",
@@ -113,6 +119,7 @@ ui <- fluidPage(
                    max = 100,
                    value = 1
                  ),
+                 # Button for calculating the composite indicator
                  # Botão para o cálculo do indicador composto
                  actionButton(inputId = "calcular_owa", label = "Calculate"),
                  div(
@@ -120,6 +127,7 @@ ui <- fluidPage(
                    HTML("<span style='font-weight: bold;'></span>"),
                  ),
                  br(),
+                 # Button to download xlsx that has step-by-step calculations to find the composite indicator
                  # Botão para o download do xlsx que possui o passo a passo dos cálculos para encontrar o indicador composto
                  div(
                    style = "display: flex; align-items: center;",
@@ -137,6 +145,7 @@ ui <- fluidPage(
                  verbatimTextOutput("selected_output"),
                )
              )),
+    # Components to show correlation chart 1
     # Componentes para mostrar o gráfico 1 de correlação 
     tabPanel("Graph 1 - Correlation Matrix",
              mainPanel(
@@ -147,6 +156,7 @@ ui <- fluidPage(
                )
              )
     ),
+    # Components to show outlier graph 2
     # Componentes para mostrar o gráfico 2 de outliers
     tabPanel("Graph 2 - Ratio of atypical measurements",
              mainPanel( width = 8,
@@ -157,6 +167,7 @@ ui <- fluidPage(
                         )
              )
     ),
+    # Components to show explanatory power chart 3
     # Componentes para mostrar o gráfico 3 de poder explicativo 
     tabPanel("Graph 3 - Explanatory Power",
              mainPanel( width = 8,
@@ -167,6 +178,7 @@ ui <- fluidPage(
                         )
              )
     ),
+    # Components to show uncertainty graph 4
     # Componentes para mostrar o gráfico 4 de incerteza
     tabPanel("Graph 4 - Uncertainty (Ranking Variation)",
              mainPanel( width = 8,
@@ -177,6 +189,7 @@ ui <- fluidPage(
                         )
              )
     ),
+    # Components to show discriminant power graph 5
     # Componentes para mostrar o gráfico 5 de poder discriminante 
     tabPanel("Graph 5 - Discriminating Power",
              mainPanel( width = 8,
@@ -188,6 +201,7 @@ ui <- fluidPage(
              )
     ),
     
+    # Components to help the user when clicking on question mark icons
     # Componentes para ajudar o usuário ao clicar nos ícones de interrogação
     tags$script(
       HTML('
@@ -205,7 +219,7 @@ ui <- fluidPage(
         });
         
         $(".info-icon-4").click(function(){
-          alert("The percentage will define the number of values ​​that will be analyzed according to the chosen emphasis.");
+          alert("The percentage will define the number of values that will be analyzed according to the chosen emphasis.");
         });
         
         $(".info-icon-0").click(function(){
@@ -223,6 +237,10 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  
+  ordenar_eq <- function(x) {
+    order(order(x))
+  }
   
   headers <- reactive({
     req(input$file)  
@@ -250,18 +268,22 @@ server <- function(input, output, session) {
     selected_pn <- input$positive_negative
     selected_slider <- input$custom_slider
     
+    # Name of the file available for downloading the step-by-step calculations of the composite indicator
     # Nome para o arquivo disponível para o download do passo a passo dos cálculos do indicador composto
     data_de_hoje <- Sys.Date()
     data_formatada <- format(data_de_hoje, "%d-%m-%Y")
     nome_do_arquivo <- paste0("Passo a passo ",data_formatada,".xlsx")
     
+    # Check if the file already exists and delete it
     # Verificar se o arquivo já existe e excluí-lo
     if (file.exists(nome_do_arquivo)) {
       file.remove(nome_do_arquivo)
     }
     
+    # Create a new Excel file
     # Criar um novo arquivo Excel
     wb <- createWorkbook()
+    # Add tabs in Excel step by step
     # Adiciona abas ao Excel passo a passo
     addWorksheet(wb, "Dados")
     addWorksheet(wb, "Normalizada")
@@ -271,117 +293,98 @@ server <- function(input, output, session) {
     addWorksheet(wb, "OWA")
     addWorksheet(wb, "Indicador Composto")
     
+    # Read the spreadsheet
     # Ler a planilha
     dados <- read_excel(input$file$datapath, sheet = 1)
     head(dados)
     
+    # Define the control variable
     # Define a variável de controle
     variavel_controle <- dados[c(selected_header)]
     lista_variavel_controle <- as.list(variavel_controle)
     
+    # Convert spreadsheet data to a matrix
     # Converter os dados da planilha para uma matriz
     matriz_dados <- as.matrix(dados)
     matriz_dados_normalizada <- matriz_dados
     
+    # Data normalization
     # Normalização de dados
     num_cols <- ncol(matriz_dados)
     
     for (col in 1:num_cols) {
       if (any(grepl("^[a-zA-Z]+$", matriz_dados[, col]))) {
-        #print("LETRAS")
         matriz_dados_normalizada[,col] <- matriz_dados[,col]
       } else {
-        #min_col <- as.numeric(min(matriz_dados[, col]))
-        #max_col <- as.numeric(max(matriz_dados[, col]))
-        #print(paste("Mínimo da Coluna", col, ":", min_col))
-        #print(paste("Máximo da Coluna", col, ":", max_col))
         
-        #print(as.numeric(matriz_dados[, col]))
-        #print(as.numeric(matriz_dados[2,2]))
-        #teste = (as.numeric(matriz_dados[2,2]) - min_col)
-        #print(teste)
-        
+        # Defines the position of the column that corresponds to the control variable
         # Define a posição da coluna que corresponde a variável de controle
         posicao_coluna_variavel_controle <- which(colnames(matriz_dados) == selected_header)
         coluna_variavel_controle <- matriz_dados[, posicao_coluna_variavel_controle]
+        # Converts the values of the control variable into a list
         # Converte em uma lista os valores da variável de controle
         lista_valores_variavel_constrole <- as.numeric(as.list(as.numeric(coluna_variavel_controle)))
         lista_valores_coluna <- as.numeric(as.list(as.numeric(matriz_dados[,col])))
         
         correlacao <- cor(lista_valores_variavel_constrole, lista_valores_coluna)
-        #print(paste("Correlação Variavel controle e coluna ", col, ":", correlacao))
-        
+
         if (correlacao < 0) {
-          #print("negativa")
           coluna_correlacao_positiva <- as.numeric(matriz_dados[,col]) * -1
         } else {
           coluna_correlacao_positiva <- as.numeric(matriz_dados[,col])
         }
         
-        #print(coluna_correlacao_positiva)
-        
         min_col <- as.numeric(min(coluna_correlacao_positiva))
         max_col <- as.numeric(max(coluna_correlacao_positiva))
         
+        # Normalize only if column contains numbers
         # Normalizar apenas se a coluna contiver números
-        #print((as.numeric(coluna_correlacao_positiva) - min_col))
-        #print((max_col - min_col))
         matriz_dados_normalizada[,col] <- as.numeric((as.numeric(coluna_correlacao_positiva) - min_col) / (max_col - min_col))
         
       }
     }
     
-    #print("Matriz Normalizada:")
-    #print(matriz_dados_normalizada)
-    
+    # Defines the matrix with the chosen subindicators
     # Define a matriz com os subindicadores escolhidos
     posicoes_colunas <- sapply(selected_headers, function(nome) which(colnames(matriz_dados_normalizada) == nome))
     my_data <- matriz_dados_normalizada[, posicoes_colunas]
     my_data_numeric <- apply(my_data, 2, function(x) as.numeric(x))
     planilha_grafico1 <- my_data_numeric
-    #print("COLUNASSSSSSSSSSSSSSSSS")
-    #print(ncol(planilha_grafico1))
-    #print(planilha_grafico1)
-    #print("NUMERICO")
-    #print((as.numeric(planilha_grafico1)))
     
-    #print("Planilha com as colunas selecionadas")
-    #print(my_data)
-    
+    # Write the matrix in the sheet tab
     # Escreve na aba sheet a matriz
     writeData(wb, sheet = "Dados", matriz_dados, startRow = 1, startCol = 1)
     writeData(wb, sheet = "Normalizada", matriz_dados_normalizada, startRow = 1, startCol = 1)
     writeData(wb, sheet = "Dados escolhidos", my_data, startRow = 1, startCol = 1)
     
-    # Encontrar as posições das colunas escolhidas (subindicadores)
-    #posicoes_colunas <- sapply(selected_headers, function(nome) which(colnames(matriz_dados) == nome))
+    # Define the matrix with the chosen columns
     # Definir a matriz com as colunas escolhidas
     matriz_resultante <- my_data
-    #print("LINHAS")
     quantidade_de_elementos_coluna <- nrow(matriz_resultante)
-    #print(quantidade_de_elementos_coluna)
     
+    # Creating the matrix transpose
     # Criando a transposta da matriz
     matriz_transposta <- t(matriz_resultante)
-    #print("Transposta")
-    #print(matriz_transposta)
     writeData(wb, sheet = "Transposta", matriz_transposta, startRow = 1, startCol = 1)
     
+    # Defines the position of the column that corresponds to the control variable
     # Define a posição da coluna que corresponde a variável de controle
     posicao_coluna_variavel_controle <- which(colnames(matriz_dados_normalizada) == selected_header)
     coluna_resultante <- matriz_dados_normalizada[, posicao_coluna_variavel_controle]
+    # Converts the values of the control variable into a list
     # Converte em uma lista os valores da variável de controle
     lista_ultima_linha <- as.list(coluna_resultante)
-    #print("VARIAVEL DE CONTROLE")
-    #print(lista_ultima_linha)
     lista_linha_variavel_controle <- lista_ultima_linha
     
+    # Sort the transposed matrix that has the subindicators in descending order
     # Ordena a matriz transposta que possui os subindicadores de forma decrescente
     matriz_ordenada <- apply(matriz_transposta, 2, function(x) sort(x, decreasing = TRUE))
+    # Write the ordered matrix in Excel
     # Escreve no excel a matriz ordenada
     quantidade_colunas_matriz_ordenada = ncol(matriz_ordenada)
     writeData(wb, sheet = "Ordenada", matriz_ordenada, startRow = 1, startCol = 1)
     
+    # Sets weight based on emphasis choice
     # Define o peso baseado na escolha da ênfase
     quantidade_linhas <- nrow(matriz_ordenada)
     valor_inicial = 0
@@ -410,31 +413,27 @@ server <- function(input, output, session) {
       }
     }
     
-    #print("LISTA Das ênfases possíveis")
-    #print(lista_valores)
-    
-    #-------------------------------------- Lista das ênfases possiveis
-    
+    # List of possible emphases
+    # Lista das ênfases possiveis
     if (selecionado == 0) {
       selecionado = lista_valores[1]
     }
     
     porcentagem = as.numeric(lista_valores[selecionado])
     
+    # Starts at position 2 - I choose the minimum emphasis - I leave all the lines
     # Começa na posição 2 - escolho a ênfase mínima - deixo todas as linhas
     if (porcentagem == 0) {
       porcentagem = as.numeric(lista_valores[2])
     }
     
+    # Set default values for comparison calculation (emphasis 0%)
     # Definimos valores padrão para o cálculo da comparação (ênfase 0%)
     porcentagem_fixa = as.numeric(lista_valores[2])
     peso_divisao_fixo = (porcentagem_fixa/100)/(1/quantidade_linhas)
-    #print("FIXO")
     quantidade_linhas_excluidas_fixo = round((porcentagem_fixa/100) * quantidade_linhas) - 1
-    #print(quantidade_linhas_excluidas_fixo)
     sobram_linhas_fixo = quantidade_linhas - quantidade_linhas_excluidas_fixo
-    #print(sobram_linhas_fixo)
-    
+
     matriz_peso_fixo <- matriz_ordenada
     
     linhas_ordenada_fixo = nrow(matriz_ordenada)
@@ -463,6 +462,7 @@ server <- function(input, output, session) {
     total_fixo <- 1:(n_linha_fixo * n_coluna_fixo)
     matriz_fixo <- matrix(total_fixo, nrow = linhas_para_manter_fixo, ncol = n_coluna_fixo)
     
+    # Multiply each position in the matrix by the emphasis weight
     # Multiplicar cada posição da matriz pelo peso da ênfase
     for (i in 1:nrow(matriz_fixo)) {
       for (j in 1:ncol(matriz_fixo)) {
@@ -476,22 +476,15 @@ server <- function(input, output, session) {
       somas_colunas_fixo[[col]] <- soma_fixo
     }
     
+    # Composite indicator for comparison
     # Indicador composto para a comparação
     somas_colunas_fixo <- as.numeric(somas_colunas_fixo)
-    
-    # print("PORCENTAGEMO")
-    # print(porcentagem)
+    ordem_eq_resultado_fixo <- ordenar_eq(somas_colunas_fixo)
     
     quantidade_linhas_excluidas = round((porcentagem/100) * quantidade_linhas) - 1
-    
-    # print("LINHAS EXCLUIDAS")
-    # print(quantidade_linhas_excluidas)
-    
     sobram_linhas = quantidade_linhas - quantidade_linhas_excluidas
     
-    # print("LINHAS QUE SOBRAM")
-    # print(sobram_linhas)
-    
+    # Delete rows in sorted array
     # Excluir linhas na matriz ordenada
     matriz_peso <- matriz_ordenada
     
@@ -503,28 +496,20 @@ server <- function(input, output, session) {
     
     quantidade_colunas = as.integer(ncol(matriz_ordenada))
     
+    # Checks the emphasis chosen for constructing the composite indicator
     # Verifica a ênfase escolhida para a construção do indicador composto
     if (selected_pn == "Positive") {
-      #linhas_para_manter <- (nrow(matriz_peso) - quantidade_linhas_excluidas)
       nova_matriz <- matriz_peso[1:sobram_linhas, ]
       
-      # AGORAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
       if (porcentagem == 100 || sobram_linhas == 1) {
         linhas_para_manter = 1
         sobram_linhas = 1
         nova_matriz <- matriz_peso[1, , drop = FALSE]
       }
       
-      # print("TAMANHO MATRIZ NOVA")
-      # print(nrow(nova_matriz))
-      # print(ncol(nova_matriz))
-      
     } else {
-      #linhas_para_manter <- (nrow(matriz_peso) - quantidade_linhas_excluidas)
-      #print(matriz_peso)
       nova_matriz <- tail(matriz_peso, n = sobram_linhas)
       
-      # AGORAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
       if (porcentagem == 100 || sobram_linhas == 1) {
         linhas_para_manter = 1
         sobram_linhas = 1
@@ -535,29 +520,18 @@ server <- function(input, output, session) {
         nova_matriz <- matriz_peso
       }
       
-      # print("TAMANHO MATRIZ NOVA")
-      # print(nrow(nova_matriz))
-      # print(ncol(nova_matriz))
-      #print(nova_matriz)
-      
     }
     
-    #print(nova_matriz)
-    
+    # Calculate the weight according to the chosen emphasis percentage
     # Calcula o peso de acordo com a porcentagem da ênfase escolhida
     peso = porcentagem/100
-    #sobram_linhas = (quantidade_linhas - linhas_para_manter) + 1
     peso = 1/sobram_linhas
-    #peso = 1/linhas_para_manter
     n_coluna = quantidade_colunas
     n_linha = sobram_linhas
     total <- 1:(n_linha * n_coluna)
     matriz <- matrix(total, nrow = n_linha, ncol = n_coluna)
-    # print("TAMANHO MATRIZ PESO")
-    # print(nrow(matriz))
-    # print(ncol(matriz))
-    # print(peso)
     
+    # Multiply each position in the matrix by the emphasis weight
     # Multiplicar cada posição da matriz pelo peso da ênfase
     for (i in 1:nrow(matriz)) {
       for (j in 1:ncol(matriz)) {
@@ -571,6 +545,7 @@ server <- function(input, output, session) {
     num_linhas_owa_correlacao <- num_linhas_owa_correlacao + 2
     num_linhas_owa_media <- num_linhas_owa_correlacao + 1
     
+    # Find the composite indicator
     # Encontra o indicador composto
     somas_colunas <- list()
     for (col in 1:ncol(matriz)) {
@@ -580,32 +555,40 @@ server <- function(input, output, session) {
     
     writeData(wb, sheet = "Indicador Composto", somas_colunas, startRow = 1, startCol = 1)
     
+    # Calculate the average of the composite indicator
     # Calcula a média do indicador composto
     media_soma <- mean(as.numeric(somas_colunas))
     
+    # Calculate the correlation between the control variable and the composite indicator
     # Calcular a correlação entre a variável de controle e o indicador composto
     lista_ultima_linha <- as.numeric(lista_ultima_linha)
     somas_colunas <- as.numeric(somas_colunas)
+    ordem_eq_resultado <- ordenar_eq(somas_colunas)
+    
     correlacao <- cor(lista_ultima_linha, somas_colunas)
     correlacao_resultado <- correlacao
     
+    # Calculates the difference between the user-defined composite indicator and the default 0% emphasis indicator
     # Calcula a diferença entre o indicador composto definido pelo usuário e o indicador padrão de ênfase 0%
     diferenca = somas_colunas_fixo - somas_colunas
-    #print("Indicador Composto")
-    #print(somas_colunas)
+    diferenca = abs(ordem_eq_resultado_fixo - ordem_eq_resultado)
     media_diferenca <- mean(diferenca)
     
+    # Calculate entropy
     # Calcula a entropia
     probabilities <- table(somas_colunas) / length(somas_colunas)
     lista <- as.list(probabilities * log2(probabilities))
     valores_vetor <<- as.numeric(lista)
     
+    # Get the keys (names) from the list
     # Pega as chaves (nomes) da lista
     chaves <<- names(lista)
+    # Get the values from the list
     # Pega os valores da lista
     valores <- unlist(valores_vetor)
     entropy <- -sum(probabilities * log2(probabilities))
     
+    # Calculate the coefficient of variation
     # Calcula o coeficiente de variação
     media = mean(somas_colunas)
     desvio_padrao = sd(somas_colunas)
@@ -670,6 +653,7 @@ server <- function(input, output, session) {
     outliers = nrow(data[distances > cutoff ,])
     outliers = outliers / quantidade_de_elementos_coluna
     
+    # Outliers graph
     # Gráfico outliers
     output$histograma <- renderPlot({
       histograma()
@@ -684,7 +668,7 @@ server <- function(input, output, session) {
       y_values <- unlist(lista_variavel_controle)
       
       if (length(x_values) != length(y_values)) {
-        return(NULL)  # Exit early if the lengths don't match
+        return(NULL)
       }
       
       data_df <- data.frame(OWA = as.numeric(x_values), V_Controle = as.numeric(y_values))
@@ -700,28 +684,6 @@ server <- function(input, output, session) {
         title = "Correlation Plot"
       )
     })
-    
-    # output$correlation_plot <- renderPlot({
-    #   x_values <- unlist(somas_colunas)
-    #   y_values <- unlist(lista_variavel_controle)
-    # 
-    #   if (length(x_values) != length(y_values)) {
-    #     return(NULL)  # Exit early if the lengths don't match
-    #   }
-    # 
-    #   data_df <- data.frame(OWA = as.numeric(x_values), V_Controle = as.numeric(y_values))
-    # 
-    #   ggscatter(
-    #     data = data_df,
-    #     x = "OWA",
-    #     y = "V_Controle",
-    #     add = "reg.line",
-    #     conf.int = TRUE,
-    #     cor.coef = TRUE,
-    #     cor.method = "pearson",
-    #     title = "Correlation Plot"
-    #   )
-    # })
     
     lista_correlacao_media <- list()
     
@@ -770,7 +732,9 @@ server <- function(input, output, session) {
     
     saveWorkbook(wb, file = nome_do_arquivo)
     
+    # Graphics
     # Gráficos
+    # Generates Graph 1 - Correlation
     # Gera o Gráfico 1 - Correlação
     generate_correlation_plot <- function(data) {
       chart.Correlation(data, histogram = TRUE, pch = 19)
@@ -780,26 +744,28 @@ server <- function(input, output, session) {
       generate_correlation_plot(planilha_grafico1)
     })
     
+    # Generates graph 4 - Uncertainty
     # Gera o gráfico 4 - Incerteza
     output$graficoCandlestick <- renderPlotly({
       diferenca = somas_colunas_fixo - somas_colunas
       
-      p <- plot_ly(type="candlestick", open = somas_colunas_fixo, close = somas_colunas, high = somas_colunas_fixo, low = somas_colunas)
+      p <- plot_ly(type="candlestick", open = ordem_eq_resultado_fixo, close = ordem_eq_resultado, high = ordem_eq_resultado_fixo, low = ordem_eq_resultado)
       p <- p %>% layout(width = 800, height = 600)
       
       p
     })
     
+    # Generates graph 5 - Histogram - Distribution
     # Gera o gráfico 5 - Histograma - Distribuição
     histograma <- reactive({
-      #dados <- rnorm(500)
       
       chaves <- as.list(chaves)
       chaves <- as.numeric(chaves)
       
-      ggplot(data.frame(x = chaves), aes(x)) + geom_histogram(bins = 10, fill = "grey", color = "black") + labs(title = "Histograma", x = "Valor", y = "Frequência")
+      ggplot(data.frame(x = chaves), aes(x)) + geom_histogram(bins = 10, fill = "grey", color = "black") + labs(title = "Histogram", x = "Value", y = "Frequency")
     })
     
+    # Download chart 1
     # Faz o download do gráfico 1
     output$download_plot1 <- downloadHandler(
       filename = function() {
@@ -812,6 +778,7 @@ server <- function(input, output, session) {
       }
     )
     
+    # Download graph 2
     # Faz o download do gráfico 2
     output$download_plot2 <- downloadHandler(
       filename = function() {
@@ -822,6 +789,7 @@ server <- function(input, output, session) {
       }
     )
     
+    # Download chart 3
     # Faz o download do gráfico 3
     output$download_plot3 <- downloadHandler(
       filename = function() {
@@ -832,6 +800,7 @@ server <- function(input, output, session) {
       }
     )
     
+    # Download chart 4
     # Faz o download do gráfico 4
     output$download_plot4 <- downloadHandler(
       filename = function() {
@@ -843,6 +812,7 @@ server <- function(input, output, session) {
       }
     )
     
+    # Download chart 5
     # Faz o download do gráfico 5
     output$download_plot5 <- downloadHandler(
       filename = function() {
@@ -894,8 +864,8 @@ server <- function(input, output, session) {
     )
     
     showModal(modalDialog(
-      title = "Download do arquivo XLSX",
-      "Clique no botão abaixo para baixar o arquivo com os cálculos e processos do OWA:",
+      title = "XLSX file download",
+      "Click the button below to download the file with OWA calculations and processes:",
       downloadLink("download_xlsx", "Baixar o arquivo .XLSX"),
       footer = actionButton("fechar_modal", "Fechar")
     ))
